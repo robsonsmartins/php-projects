@@ -1,6 +1,6 @@
 <?php
 /* ---------------------------------------------------------------------------- 
- *  Visitor Info Service (v.1.0)
+ *  Visitor Info Service (v.1.1)
  * ---------------------------------------------------------------------------- 
  *  Copyright (C) 2015 Robson S. Martins
  *  Robson Martins <http://www.robsonmartins.com>
@@ -157,43 +157,6 @@ class VisitorInfo {
 
     switch ($uaInfo['os_code']){
       case "unknown"      : $uaInfo['os'     ] = "Unknown"     ; break;
-      case "win7"         : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "7"        ; break;
-      case "win10"        : 
-      case "win10.0"      : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "10"       ; 
-                            $uaInfo['os_code'] = "win10"       ; break;
-      case "win8"         : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "8"        ; break;
-      case "win81"        : 
-      case "win8.1"       : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "8.1"      ; 
-                            $uaInfo['os_code'] = "win81"       ; break;
-      case "win95"        : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "95"       ; break;
-      case "win98"        : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "98"       ; break;
-      case "winme"        : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "ME"       ; break;
-      case "win2000"      : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "2000"     ; break;
-      case "winxp"        : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "XP"       ; break;
-      case "win2003"      : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "2003"     ; break;
-      case "winvista"     : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "Vista"    ; break;
-      case "win2008"      : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "2008"     ; break;
-      case "win2012"      : $uaInfo['os'     ] = "Windows"     ; 
-                            $uaInfo['os_version'] = "2012"     ; break;
-      case "win"          :
-      case "win32"        : $uaInfo['os'     ] = "Windows"     ; break;
-      case "win16"        :
-      case "win31"        : $uaInfo['os'     ] = "Windows"     ; break;
-                            $uaInfo['os_version'] = "3.x"      ; break;
-      case "winnt"        : $uaInfo['os'     ] = "Windows"     ; break;
-                            $uaInfo['os_version'] = "NT"       ; break;
       case "os/2"         : $uaInfo['os_code'] = "os2"         ; break;
       case "risc os"      : $uaInfo['os_code'] = "risc"        ; break;
       case "digital unix" :
@@ -204,6 +167,7 @@ class VisitorInfo {
       case "mpras"        :
       case "reliant"      :
       case "sinix"        : $uaInfo['os_code'] = "unix"        ; break;
+      case "macos"        :
       case "mac os"       : 
       case "darwin"       : 
       case "macppc"       : $uaInfo['os_code'] = "macosx"      ;
@@ -212,6 +176,8 @@ class VisitorInfo {
       case "ios"          : $uaInfo['os_code'] = "iphone"      ;
                             $uaInfo['is_mobile'] = true        ; break;
       case "windows phone os": 
+      case "windowsphone"    :
+      case "winphone"        :
       case "windows phone"   : $uaInfo['os_code'  ] = "winphoneos";
                                $uaInfo['is_mobile'] = true        ; break;
       case "symbian"         : $uaInfo['os_code'  ] = "symbianos" ;
@@ -231,12 +197,41 @@ class VisitorInfo {
       case "symbianos"    : 
       case "webos"        : 
       case "winphoneos"   : $uaInfo['is_mobile'] = true        ; break;
+      case "winme"        : $uaInfo['os'     ] = "Windows"     ; 
+                            $uaInfo['os_version'] = "ME"       ; break;
+      case "winxp"        : $uaInfo['os'     ] = "Windows"     ; 
+                            $uaInfo['os_version'] = "XP"       ; break;
+      case "winvista"     : $uaInfo['os'     ] = "Windows"     ; 
+                            $uaInfo['os_version'] = "Vista"    ; break;
+      case "win"          :
+      case "win32"        : $uaInfo['os'     ] = "Windows"     ; break;
+      case "win16"        :
+      case "win31"        : $uaInfo['os'     ] = "Windows"     ; break;
+                            $uaInfo['os_version'] = "3.x"      ; break;
+      case "winnt"        : $uaInfo['os'     ] = "Windows"     ; break;
+                            $uaInfo['os_version'] = "NT"       ; break;
       case "windows"      : 
-        $uaInfo['os_code'] = 
-          strtolower(str_replace(".", "", "win" . $uaInfo['os_version']));
+        $uaInfo['os_version'] = floatval($uaInfo['os_version']);
+        $uaInfo['os_code'   ] = 
+          strtolower(str_replace(".","","win".$uaInfo['os_version']));
         break;
       default:
+        if (substr($uaInfo['os_code'],0,3) === "win") {
+          $uaInfo['os'        ] = "Windows"; 
+          $uaInfo['os_version'] = floatval(substr($uaInfo['os_code'],3)); 
+          $uaInfo['os_code'   ] = 
+            str_replace(".","",'win'.$uaInfo['os_version']); 
+        }
     }
+    /* Win10 Spartan? Browser (yet IE 12) */
+    if ($uaInfo['os_code'] === 'win10' &&
+        $uaInfo2['browser_code'] === 'ie' && $uaInfo['browser_version'] > 11) {
+
+        $uaInfo['browser_code'   ] = $uaInfo2['browser_code'   ];
+        $uaInfo['browser'        ] = $uaInfo2['browser'        ];
+        $uaInfo['browser_version'] = $uaInfo2['browser_version'];
+    }
+    
     switch ($uaInfo['browser_code']){
       case "unknown"       : $uaInfo['browser'     ] = "Unknown"          ; break;
       case "ie"            : $uaInfo['browser'     ] = "Internet Explorer"; break;
@@ -424,12 +419,14 @@ class VisitorInfo {
         $v  = $match[2][0];
         $v2 = $match[3][0];
       }
+      // more recent Windows 
+      if (stristr($v,'NT') && $v2 > 10.0) $v = 'Win'.$v2;
       // Establish NT 10.0 as Windows 10
-      if (stristr($v,'NT') && $v2 == 10.0) $v = 'Win10';
+      elseif (stristr($v,'NT') && $v2 == 10.0) $v = 'Win10';
       // Establish NT 6.4 as Windows 10
-      if (stristr($v,'NT') && $v2 == 6.4) $v = 'Win10';
+      elseif (stristr($v,'NT') && $v2 == 6.4) $v = 'Win10';
       // Establish NT 6.3 as Windows 8.1
-      if (stristr($v,'NT') && $v2 == 6.3) $v = 'Win81';
+      elseif (stristr($v,'NT') && $v2 == 6.3) $v = 'Win81';
       // Establish NT 6.2 as Windows 8
       elseif (stristr($v,'NT') && $v2 == 6.2) $v = 'Win8';
       // Establish NT 6.1 as Windows 7
@@ -446,8 +443,6 @@ class VisitorInfo {
       elseif (stristr($v,'9x') && $v2 == 4.9) $v = 'Win98';
       // See if we're running windows 3.1
       elseif ($v.$v2 == '16bit') $v = 'Win31';
-      // more recent Windows 
-      elseif (stristr($v,'NT') && $v2 > 6.3) $v = 'Win';
       // old Windows NT
       elseif (stristr($v,'NT') && $v2 < 5.0) $v = 'WinNT';
       // win CE
@@ -522,6 +517,7 @@ class VisitorInfo {
     /*--------------------------------------------------------------------------*/
     /* browser */
     $_browsers = array(
+      'edge'                        => 'IE', /* Microsoft Spartan? */
       'internet explorer'           => 'IE',
       'msie'                        => 'IE',
       'netscape6'                   => 'NS',
@@ -580,6 +576,7 @@ class VisitorInfo {
       // if we're allowing masquerading, revert to the next to last browser found
       // if possible, otherwise stay put
       if (stristr($agent,"chrome")) $count--;
+      if (stristr($agent,"edge")) $count++;
       if (stristr($agent,"webpositive")) $count--;
       //if ($count > 0) $count--;
       // insert findings into the container
@@ -606,6 +603,7 @@ class VisitorInfo {
       }
     }
     switch (strtolower($browser)){
+      case 'edge'             : /* Microsoft Spartan? */
       case 'internet explorer':
       case 'msie'             : $browser = 'ie'      ; break;
       case 'minefield'        : $browser = 'Firefox' ; break;
