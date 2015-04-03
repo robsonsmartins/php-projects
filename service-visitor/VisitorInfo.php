@@ -1,6 +1,6 @@
 <?php
 /* ---------------------------------------------------------------------------- 
- *  Visitor Info Service (v.1.1)
+ *  Visitor Info Service (v.1.2)
  * ---------------------------------------------------------------------------- 
  *  Copyright (C) 2015 Robson S. Martins
  *  Robson Martins <http://www.robsonmartins.com>
@@ -211,14 +211,20 @@ class VisitorInfo {
       case "winnt"        : $uaInfo['os'     ] = "Windows"     ; break;
                             $uaInfo['os_version'] = "NT"       ; break;
       case "windows"      : 
-        $uaInfo['os_version'] = floatval($uaInfo['os_version']);
+        $ver = floatval($uaInfo['os_version']);
+        if ($ver > 0) { $uaInfo['os_version'] = $ver; }
         $uaInfo['os_code'   ] = 
           strtolower(str_replace(".","","win".$uaInfo['os_version']));
         break;
       default:
         if (substr($uaInfo['os_code'],0,3) === "win") {
           $uaInfo['os'        ] = "Windows"; 
-          $uaInfo['os_version'] = floatval(substr($uaInfo['os_code'],3)); 
+          $ver = floatval(substr($uaInfo['os_code'],3));
+          if ($ver > 0) { 
+            $uaInfo['os_version'] = $ver;
+          } else {
+            $uaInfo['os_version'] = substr($uaInfo['os_code'],3); 
+          }
           $uaInfo['os_code'   ] = 
             str_replace(".","",'win'.$uaInfo['os_version']); 
         }
