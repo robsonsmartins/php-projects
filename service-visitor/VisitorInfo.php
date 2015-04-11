@@ -203,6 +203,8 @@ class VisitorInfo {
                             $uaInfo['os_version'] = "XP"       ; break;
       case "winvista"     : $uaInfo['os'     ] = "Windows"     ; 
                             $uaInfo['os_version'] = "Vista"    ; break;
+      case "win81"        : $uaInfo['os'     ] = "Windows"     ; 
+                            $uaInfo['os_version'] = "8.1"      ; break;
       case "win"          :
       case "win32"        : $uaInfo['os'     ] = "Windows"     ; break;
       case "win16"        :
