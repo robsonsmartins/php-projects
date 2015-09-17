@@ -1,6 +1,6 @@
 <?php
 /* ---------------------------------------------------------------------------- 
- *  Visitor Info Service (v.1.2)
+ *  Visitor Info Service (v.1.3)
  * ---------------------------------------------------------------------------- 
  *  Copyright (C) 2015 Robson S. Martins
  *  Robson Martins <http://www.robsonmartins.com>
@@ -231,9 +231,9 @@ class VisitorInfo {
             str_replace(".","",'win'.$uaInfo['os_version']); 
         }
     }
-    /* Win10 Spartan? Browser (yet IE 12) */
+    /* Win10 Edge Browser */
     if ($uaInfo['os_code'] === 'win10' &&
-        $uaInfo2['browser_code'] === 'ie' && $uaInfo['browser_version'] > 11) {
+        $uaInfo2['browser_code'] === 'edge' && $uaInfo['browser_version'] > 11){
 
         $uaInfo['browser_code'   ] = $uaInfo2['browser_code'   ];
         $uaInfo['browser'        ] = $uaInfo2['browser'        ];
@@ -241,14 +241,15 @@ class VisitorInfo {
     }
     
     switch ($uaInfo['browser_code']){
-      case "unknown"       : $uaInfo['browser'     ] = "Unknown"          ; break;
-      case "ie"            : $uaInfo['browser'     ] = "Internet Explorer"; break;
-      case "palemoon"      : $uaInfo['browser_code'] = "firefox"          ; break;
-      case "multizilla"    : $uaInfo['browser_code'] = "mozilla"          ; break;
-      case "firefox mobile": $uaInfo['browser_code'] = "fennec"           ; break;
-      case "webtv/msntv"   : $uaInfo['browser_code'] = "webtv"            ; break;
-      case "avant browser" : $uaInfo['browser_code'] = "avant"            ; break;
-      case "internet explorer": $uaInfo['browser_code'] = "ie"            ; break;
+      case "unknown"          : $uaInfo['browser'     ] = "Unknown"          ; break;
+      case "edge"             : $uaInfo['browser'     ] = "Edge"             ; break;
+      case "internet explorer": $uaInfo['browser_code'] = "ie"; 
+      case "ie"               : $uaInfo['browser'     ] = "Internet Explorer"; break;
+      case "palemoon"         : $uaInfo['browser_code'] = "firefox"          ; break;
+      case "multizilla"       : $uaInfo['browser_code'] = "mozilla"          ; break;
+      case "firefox mobile"   : $uaInfo['browser_code'] = "fennec"           ; break;
+      case "webtv/msntv"      : $uaInfo['browser_code'] = "webtv"            ; break;
+      case "avant browser"    : $uaInfo['browser_code'] = "avant"            ; break;
       default:
         if (strpos($uaInfo['browser_code'],"google") !== false) { 
           $uaInfo['browser_code'] = "google"; 
@@ -423,7 +424,7 @@ class VisitorInfo {
       // Windows has some of the most ridiculous HTTP_USER_AGENT strings
       $v  = @$match[2][1];
       $v2 = @$match[3][1];
-      if (empty($v)) {     
+      if (empty($v) || empty($v2)) {     
         $v  = $match[2][0];
         $v2 = $match[3][0];
       }
@@ -525,7 +526,7 @@ class VisitorInfo {
     /*--------------------------------------------------------------------------*/
     /* browser */
     $_browsers = array(
-      'edge'                        => 'IE', /* Microsoft Spartan? */
+      'edge'                        => 'ME', /* Microsoft Edge */
       'internet explorer'           => 'IE',
       'msie'                        => 'IE',
       'netscape6'                   => 'NS',
@@ -611,7 +612,7 @@ class VisitorInfo {
       }
     }
     switch (strtolower($browser)){
-      case 'edge'             : /* Microsoft Spartan? */
+      case 'edge'             : $browser = 'edge'    ; break;
       case 'internet explorer':
       case 'msie'             : $browser = 'ie'      ; break;
       case 'minefield'        : $browser = 'Firefox' ; break;
