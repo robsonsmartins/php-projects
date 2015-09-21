@@ -368,7 +368,13 @@ function IssuuDownloader() {
       function(param){
         doc.setPage(1);
         doc.deletePage(1);
-        if (safari != undefined && typeof safari !== "undefined"){
+        var isSafari = false;
+        try { 
+          if (safari != undefined && typeof safari !== "undefined"){
+            isSafari = true;
+          }
+        } catch(e){}
+        if (isSafari){
           var bloburl = doc.output('bloburl',filename);
           callbackOk(bloburl);
         } else {
