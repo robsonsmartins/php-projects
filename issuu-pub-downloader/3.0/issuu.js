@@ -3,7 +3,7 @@
  * @fileOverview Issuu Publication Downloader
  * 
  * @author Robson Martins (robson@robsonmartins.com)
- * @version 3.0
+ * @version 3.0.1
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -85,8 +85,8 @@ function IssuuDownloader() {
   var ISSUU_OUTPUT_DOCUMENT_TYPE = 'pdf';
 
   /* PHP Proxy URLs (for cross-domain) */
-  var CROSS_DOMAIN_URL        = 'ba-simple-proxy.php?send_cookies=1&send_session=1&url={url}';
-  var CROSS_DOMAIN_NATIVE_URL = 'ba-simple-proxy.php?send_cookies=1&send_session=1&mode=native&url={url}';
+  var CROSS_DOMAIN_URL        = 'dld.php?send_cookies=1&send_session=1&url={url}';
+  var CROSS_DOMAIN_NATIVE_URL = 'dld.php?send_cookies=1&send_session=1&mode=native&url={url}';
 
   /* PDF creator name string */
   var PDF_CREATOR_APPNAME     = 'Issuu Publication Downloader';
@@ -368,8 +368,13 @@ function IssuuDownloader() {
       function(param){
         doc.setPage(1);
         doc.deletePage(1);
-        doc.save(filename);
-        callbackOk(filename);
+        if (safari != undefined && typeof safari !== "undefined"){
+          var bloburl = doc.output('bloburl',filename);
+          callbackOk(bloburl);
+        } else {
+          doc.save(filename);
+          callbackOk(filename);
+        }
       }, 
       function(msg){
         callbackNok("Error generating PDF: " + msg);
