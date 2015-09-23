@@ -85,8 +85,8 @@ function IssuuDownloader() {
   var ISSUU_OUTPUT_DOCUMENT_TYPE = 'pdf';
 
   /* PHP Proxy URLs (for cross-domain) */
-  var CROSS_DOMAIN_URL        = 'dld.php?send_cookies=1&send_session=1&url={url}';
-  var CROSS_DOMAIN_NATIVE_URL = 'dld.php?send_cookies=1&send_session=1&mode=native&url={url}';
+  var CROSS_DOMAIN_URL        = 'ba-simple-proxy.php?send_cookies=1&send_session=1&url={url}';
+  var CROSS_DOMAIN_NATIVE_URL = 'ba-simple-proxy.php?send_cookies=1&send_session=1&mode=native&url={url}';
 
   /* PDF creator name string */
   var PDF_CREATOR_APPNAME     = 'Issuu Publication Downloader';
