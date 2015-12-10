@@ -3,7 +3,7 @@
  * @fileOverview Issuu Publication Downloader
  * 
  * @author Robson Martins (robson@robsonmartins.com)
- * @version 3.0.1
+ * @version 3.0.2
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -75,8 +75,8 @@ function IssuuDownloader() {
 
   /* ISSUU service URLs */
   var ISSUU_MAIN_URL          = 'http://issuu.com';
-  var ISSUU_SEARCH_DOC_URL    = 'http://search.issuu.com/api/2_0/document?q=*&responseParams=*&documentId={documentId}';
-  var ISSUU_SEARCH_ALL_URL    = 'http://search.issuu.com/api/2_0/document?q=*&responseParams=*&username={username}&pageSize={pageSize}&startIndex={startIndex}';
+  var ISSUU_SEARCH_DOC_URL    = 'http://search.issuu.com/api/2_0/document?q=*&responseParams=*&explicit=1&documentId={documentId}';
+  var ISSUU_SEARCH_ALL_URL    = 'http://search.issuu.com/api/2_0/document?q=*&responseParams=*&explicit=1&username={username}&pageSize={pageSize}&startIndex={startIndex}';
   var ISSUU_LOGIN_URL         = 'http://api.issuu.com/query?permission=f&loginExpiration=standard&action=issuu.user.login&format=json&username={username}&password={password}';
   var ISSUU_IMAGE_URL         = 'http://image.issuu.com/{documentId}/jpg/page_{page}.{extension}';
   
