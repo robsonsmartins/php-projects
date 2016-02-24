@@ -3,7 +3,7 @@
  * @fileOverview Issuu Publication Downloader
  * 
  * @author Robson Martins (robson@robsonmartins.com)
- * @version 3.0.2
+ * @version 3.0.3
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -74,11 +74,11 @@ function IssuuDownloader() {
   /* constants */
 
   /* ISSUU service URLs */
-  var ISSUU_MAIN_URL          = 'http://issuu.com';
-  var ISSUU_SEARCH_DOC_URL    = 'http://search.issuu.com/api/2_0/document?q=*&responseParams=*&explicit=1&documentId={documentId}';
-  var ISSUU_SEARCH_ALL_URL    = 'http://search.issuu.com/api/2_0/document?q=*&responseParams=*&explicit=1&username={username}&pageSize={pageSize}&startIndex={startIndex}';
-  var ISSUU_LOGIN_URL         = 'http://api.issuu.com/query?permission=f&loginExpiration=standard&action=issuu.user.login&format=json&username={username}&password={password}';
-  var ISSUU_IMAGE_URL         = 'http://image.issuu.com/{documentId}/jpg/page_{page}.{extension}';
+  var ISSUU_MAIN_URL          = 'https://issuu.com';
+  var ISSUU_SEARCH_DOC_URL    = 'https://search.issuu.com/api/2_0/document?q=*&responseParams=*&explicit=1&documentId={documentId}';
+  var ISSUU_SEARCH_ALL_URL    = 'https://search.issuu.com/api/2_0/document?q=*&responseParams=*&explicit=1&username={username}&pageSize={pageSize}&startIndex={startIndex}';
+  var ISSUU_LOGIN_URL         = 'https://api.issuu.com/query?permission=f&loginExpiration=standard&action=issuu.user.login&format=json&username={username}&password={password}';
+  var ISSUU_IMAGE_URL         = 'https://image.issuu.com/{documentId}/jpg/page_{page}.{extension}';
   
   /* Filetypes */
   var ISSUU_IMAGE_TYPE           = 'jpg';
@@ -556,8 +556,11 @@ function IssuuDownloader() {
     if (baseUrl == null || baseUrl == '' || baseUrl == undefined) { 
       return null; 
     }
-    var result = baseUrl;
-    if (result.toLowerCase().indexOf(ISSUU_MAIN_URL.toLowerCase()) != 0) {
+    var result = baseUrl.toLowerCase();
+	if (result.indexOf('http://') == 0) {
+		result = 'https://' + result.substr(7);
+	}
+    if (result.indexOf(ISSUU_MAIN_URL.toLowerCase()) != 0) {
       if (result.indexOf('/') != 0) {
         result = '/' + result;
       }
