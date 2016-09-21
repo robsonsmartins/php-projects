@@ -3,11 +3,11 @@
  * @fileOverview Issuu Publication Downloader
  * 
  * @author Robson Martins (robson@robsonmartins.com)
- * @version 3.0.3
+ * @version 3.0.4
  */
 /*----------------------------------------------------------------------------*/
 /* 
- *  Copyright (C) 2015 Robson S. Martins
+ *  Copyright (C) 2016 Robson S. Martins
  *  Robson Martins <http://www.robsonmartins.com>
  * 
  *  This program is free software: you can redistribute it and/or modify
@@ -249,7 +249,7 @@ function IssuuDownloader() {
   /** @private */
   function buildMultiplePDFProgress(pageNo,pageCount,pubNo,pubCount,percent) {
     if (onProgressEvent) { 
-      onProgressEvent(pageNo,pageCount,pubNo,pubCount,percent); 
+      onProgressEvent(pageNo,pageCount,pubNo+1,pubCount,percent); 
     }
   };
   
@@ -404,7 +404,7 @@ function IssuuDownloader() {
       pubProps = pubPropsList[idx];
       totalPages += pubProps.pagecount;
     }    
-    buildPDFList(pubPropsList, 1, 0, totalPages,
+    buildPDFList(pubPropsList, 0, 0, totalPages,
                  callbackOk, callbackNok, callbackProgress);
   };
 
@@ -420,7 +420,7 @@ function IssuuDownloader() {
     buildPDF(pubProps, filename, 
              function(f){
                currentPub++;
-               if (currentPub > len) {
+               if (currentPub >= len) {
                  callbackOk(len);
                  return;
                }
@@ -474,7 +474,7 @@ function IssuuDownloader() {
                 callbackOk(pubs);
                 return;
               }              
-               if (abort_process) { callbackNok("Cancelled."); return; }
+              if (abort_process) { callbackNok("Cancelled."); return; }
               getPageOfSearchByAuthor(author, pageNo, pubCount, pubs,
                                       callbackOk, callbackNok);
             },
