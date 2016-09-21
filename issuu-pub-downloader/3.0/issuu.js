@@ -264,7 +264,7 @@ function IssuuDownloader() {
       return;
     }
     var login_url = ISSUU_LOGIN_URL.format({username:username,password:pwd});
-    getJson(login_url, 
+    getJsonByPost(login_url, 
             function(resp){
               var json_login = resp;
               if (json_login == null || json_login == undefined ||
@@ -609,6 +609,20 @@ function IssuuDownloader() {
   };
 
   /** @private */
+  function getJsonByPost(uri, callbackOk, callbackNok) {
+    try {
+      getFileByMethod('POST', uri, null,
+              function(resp){
+                var response = JSON.parse(resp);
+                callbackOk(response);
+              }, 
+              callbackNok);
+    } catch (e) { 
+      callbackNok("Error getting file '" + uri + "': " + e.message); 
+    }
+  };
+
+  /** @private */
   function getJson(uri, callbackOk, callbackNok) {
     try {
       getFile(uri, 
@@ -651,10 +665,15 @@ function IssuuDownloader() {
 
   /** @private */
   function getFile(uri, callbackOk, callbackNok) {
+	getFileByMethod('GET',uri,null,callbackOk,callbackNok);  
+  };
+
+  /** @private */
+  function getFileByMethod(method, uri, data, callbackOk, callbackNok) {
     var xduri = CROSS_DOMAIN_URL.format({url:encodeURIComponent(uri)});
     var xhr = new XMLHttpRequest();
     try {
-      xhr.open('GET', xduri, true);
+      xhr.open(method, xduri, true);
       xhr.onreadystatechange = function() {
         if (xhr.readyState == 4) {
           if (xhr.status == 200) {
@@ -679,12 +698,12 @@ function IssuuDownloader() {
           }
         }
       };
-      xhr.send(null);
+      xhr.send(data);
     } catch (e) { 
       callbackNok("Error getting file '" + uri + "': " + e.message); 
     }
   };
-
+  
   /** @private */
   function getImageFile(uri, mimeType, callbackOk, callbackNok) {
     var img = new Image();
