@@ -3,7 +3,7 @@
  * @fileOverview Issuu Publication Downloader
  * 
  * @author Robson Martins (robson@robsonmartins.com)
- * @version 3.0.4
+ * @version 3.1.0
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -75,18 +75,32 @@ function IssuuDownloader() {
 
   /* ISSUU service URLs */
   var ISSUU_MAIN_URL          = 'https://issuu.com';
-  var ISSUU_SEARCH_DOC_URL    = 'https://search.issuu.com/api/2_0/document?q=*&responseParams=*&explicit=1&documentId={documentId}';
-  var ISSUU_SEARCH_ALL_URL    = 'https://search.issuu.com/api/2_0/document?q=*&responseParams=*&explicit=1&username={username}&pageSize={pageSize}&startIndex={startIndex}';
-  var ISSUU_LOGIN_URL         = 'https://api.issuu.com/query?permission=f&loginExpiration=standard&action=issuu.user.login&format=json&username={username}&password={password}';
-  var ISSUU_IMAGE_URL         = 'https://image.issuu.com/{documentId}/jpg/page_{page}.{extension}';
+  
+  var ISSUU_SEARCH_BASE_URL   = 'https://search.issuu.com/api/2_0/document';
+  var ISSUU_SEARCH_DOC_PARAMS = 'q=*&responseParams=*&explicit=1&documentId={documentId}';
+  var ISSUU_SEARCH_DOC_URL    = ISSUU_SEARCH_BASE_URL+'?'+ISSUU_SEARCH_DOC_PARAMS;
+  var ISSUU_SEARCH_ALL_PARAMS = 'q=*&responseParams=*&explicit=1&username={username}&pageSize={pageSize}&startIndex={startIndex}';
+  var ISSUU_SEARCH_ALL_URL    = ISSUU_SEARCH_BASE_URL+'?'+ISSUU_SEARCH_ALL_PARAMS;
+
+  var ISSUU_LOGIN_SIGNIN_URL  = ISSUU_MAIN_URL+'/signin?onLogin=%2F';
+  
+  var ISSUU_LOGIN_BASE_URL    = 'https://api.issuu.com/query';
+  var ISSUU_LOGIN_PARAMS      = 'permission=f&loginExpiration=standard&action=issuu.user.login&format=json&username={username}&password={password}&loginCsrf={csrf}';
+  var ISSUU_LOGIN_URL         = ISSUU_LOGIN_BASE_URL+'?'+ISSUU_LOGIN_PARAMS;
+
+  var ISSUU_IMAGE_BASE_URL    = 'https://image.issuu.com';
+  var ISSUU_IMAGE_PARAMS      = '{documentId}/jpg/page_{page}.{extension}';
+  var ISSUU_IMAGE_URL         = ISSUU_IMAGE_BASE_URL+'/'+ISSUU_IMAGE_PARAMS;
   
   /* Filetypes */
   var ISSUU_IMAGE_TYPE           = 'jpg';
   var ISSUU_OUTPUT_DOCUMENT_TYPE = 'pdf';
 
   /* PHP Proxy URLs (for cross-domain) */
-  var CROSS_DOMAIN_URL        = 'ba-simple-proxy.php?send_cookies=1&send_session=1&url={url}';
-  var CROSS_DOMAIN_NATIVE_URL = 'ba-simple-proxy.php?send_cookies=1&send_session=1&mode=native&url={url}';
+  var CROSS_DOMAIN_BASE_URL   = 'ba-simple-proxy.php';
+  var CROSS_DOMAIN_PARAMS     = 'send_cookies=1&send_session=1&url={url}';
+  var CROSS_DOMAIN_URL        = CROSS_DOMAIN_BASE_URL+'?'+CROSS_DOMAIN_PARAMS;
+  var CROSS_DOMAIN_NATIVE_URL = CROSS_DOMAIN_BASE_URL+'?mode=native&'+CROSS_DOMAIN_PARAMS;
 
   /* PDF creator name string */
   var PDF_CREATOR_APPNAME     = 'Issuu Publication Downloader';
@@ -124,7 +138,7 @@ function IssuuDownloader() {
     onProgressEvent = this.onProgress;
     onErrorEvent    = this.onError  ;
     if (issuu_username) {
-      login(issuu_username, issuu_password, loginOK, eventNOK);
+      getFile(ISSUU_LOGIN_SIGNIN_URL, eventToLogin, eventToLogin);
     } else {
       getPublicationId(publication_uri, getPublicationIdOK, eventNOK);
     }
@@ -147,7 +161,7 @@ function IssuuDownloader() {
     onProgressEvent = this.onProgress;
     onErrorEvent    = this.onError  ;
     if (issuu_username) {
-      login(issuu_username, issuu_password, loginAllByAuthorOK, eventNOK);
+      getFile(ISSUU_LOGIN_SIGNIN_URL, eventToLoginAll, eventToLoginAll);
     } else {
       getPublicationsByAuthor(author_name, getPublicationsByAuthorOK, eventNOK);
     }
@@ -197,6 +211,18 @@ function IssuuDownloader() {
   function eventNOK(msg) {
     if (onErrorEvent) { onErrorEvent(msg); }
   };
+  
+  /** @private */
+  function eventToLogin(msg) {
+    if (abort_process) { eventNOK("Cancelled."); return; }
+    login(issuu_username, issuu_password, loginOK, eventNOK);
+  }
+
+  /** @private */
+  function eventToLoginAll(msg) {
+    if (abort_process) { eventNOK("Cancelled."); return; }
+    login(issuu_username, issuu_password, loginAllByAuthorOK, eventNOK);
+  }
   
   /** @private */
   function loginOK(username) {
@@ -263,8 +289,12 @@ function IssuuDownloader() {
       callbackNok("Error: Empty username and/or password.");
       return;
     }
-    var login_url = ISSUU_LOGIN_URL.format({username:username,password:pwd});
-    getJsonByPost(login_url, 
+    var csrf = 
+      document.cookie.replace(
+        /(?:(?:^|.*;\s*)issuu\.model\.lcsrf\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+    var login_url = 
+      ISSUU_LOGIN_URL.format({username:username,password:pwd,csrf:csrf});
+    getJsonByPost(login_url, null, null,
             function(resp){
               var json_login = resp;
               if (json_login == null || json_login == undefined ||
@@ -296,7 +326,7 @@ function IssuuDownloader() {
                             pub_url + "'.");
                 return; 
               }
-              var node = getElementByDom(dom,"meta","property","og:video");
+              var node = getElementByDom(dom,"meta","property","og:image");
               var issuu_reader_url =
                 (node != null) ? node.getAttribute("content") : null;
               if (issuu_reader_url == null || issuu_reader_url == '' || 
@@ -305,7 +335,16 @@ function IssuuDownloader() {
                             pub_url + "'.");
                 return; 
               }
-              var doc_id = getParameterByName(issuu_reader_url, 'documentId');
+              // "<protocol:>//<domain>/<doc_id>/<trash>"
+              var regex = new RegExp(/http[s?]:\/\/[^\/]*\/([^\/]*)\//);
+              var results = regex.exec(issuu_reader_url);
+              if (results == null || results.length <= 1) {
+                callbackNok("Error getting publication ID from '" + 
+                            pub_url + 
+                            "'. Meta Property 'og:image': Content is invalid.");
+                return; 
+              }
+              var doc_id = results[1];
               callbackOk(doc_id);
            }, 
            callbackNok
@@ -557,9 +596,9 @@ function IssuuDownloader() {
       return null; 
     }
     var result = baseUrl.toLowerCase();
-	if (result.indexOf('http://') == 0) {
-		result = 'https://' + result.substr(7);
-	}
+    if (result.indexOf('http://') == 0) {
+      result = 'https://' + result.substr(7);
+    }
     if (result.indexOf(ISSUU_MAIN_URL.toLowerCase()) != 0) {
       if (result.indexOf('/') != 0) {
         result = '/' + result;
@@ -599,8 +638,12 @@ function IssuuDownloader() {
     try {
       getFile(uri, 
               function(resp){
-                var response = textToXML(resp);
-                callbackOk(response);
+                try {  
+                  var response = textToXML(resp);
+                  callbackOk(response);
+                } catch(e) {
+                  callbackNok("Error getting file '" + uri + "': " + e.message);
+                }
               }, 
               callbackNok);
     } catch (e) { 
@@ -609,12 +652,16 @@ function IssuuDownloader() {
   };
 
   /** @private */
-  function getJsonByPost(uri, callbackOk, callbackNok) {
+  function getJsonByPost(uri, data, headers, callbackOk, callbackNok) {
     try {
-      getFileByMethod('POST', uri, null,
+      getFileByMethod('POST', uri, data, headers,
               function(resp){
-                var response = JSON.parse(resp);
-                callbackOk(response);
+                try {  
+                  var response = JSON.parse(resp);
+                  callbackOk(response);
+                } catch(e) {
+                  callbackNok("Error getting file '" + uri + "': " + e.message);
+                }
               }, 
               callbackNok);
     } catch (e) { 
@@ -627,8 +674,12 @@ function IssuuDownloader() {
     try {
       getFile(uri, 
               function(resp){
-                var response = JSON.parse(resp);
-                callbackOk(response);
+                try {  
+                  var response = JSON.parse(resp);
+                  callbackOk(response);
+                } catch(e) {
+                  callbackNok("Error getting file '" + uri + "': " + e.message);
+                }
               }, 
               callbackNok);
     } catch (e) { 
@@ -665,23 +716,25 @@ function IssuuDownloader() {
 
   /** @private */
   function getFile(uri, callbackOk, callbackNok) {
-	getFileByMethod('GET',uri,null,callbackOk,callbackNok);  
+    getFileByMethod('GET',uri,null,null,callbackOk,callbackNok);  
   };
 
   /** @private */
-  function getFileByMethod(method, uri, data, callbackOk, callbackNok) {
-    var xduri = CROSS_DOMAIN_URL.format({url:encodeURIComponent(uri)});
+  function getFileByMethod(method, uri, data, headers, callbackOk, callbackNok){
+    var xduri = CROSS_DOMAIN_NATIVE_URL.format({url:encodeURIComponent(uri)});
     var xhr = new XMLHttpRequest();
     try {
       xhr.open(method, xduri, true);
       xhr.onreadystatechange = function() {
         if (xhr.readyState == 4) {
           if (xhr.status == 200) {
-            var response = xhr.responseText;
+            var r; var response = xhr.responseText;
             if (response != null) {
-              response = JSON.parse(response);
+              try {
+                r = JSON.parse(response); response = r;
+              } catch(e) {}
             }
-            if (response != null) {
+            if (response != null && response.contents != undefined) {
               response = response.contents;
             }
             if (response != null) {
@@ -698,6 +751,14 @@ function IssuuDownloader() {
           }
         }
       };
+      if (headers != null && headers != undefined && headers.length > 0) {
+        for (var i = 0; i < headers.length; i++) {
+          if (headers[i].name == null || headers[i].name == undefined) {
+            continue;
+          }
+          xhr.setRequestHeader(headers[i].name,headers[i].value);
+        }
+      }
       xhr.send(data);
     } catch (e) { 
       callbackNok("Error getting file '" + uri + "': " + e.message); 

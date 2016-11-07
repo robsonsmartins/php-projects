@@ -167,6 +167,10 @@ if ( !$url ) {
   if ( $_GET['send_cookies'] ) {
     $cookie = array();
     foreach ( $_COOKIE as $key => $value ) {
+	  // adjusts for issuu login (cookies in PHP replaces dot to underscore!)
+	  if ($key === 'issuu_model_lcsrf') {
+		$key = 'issuu.model.lcsrf';  
+	  }
       $cookie[] = $key . '=' . $value;
     }
     if ( $_GET['send_session'] ) {
