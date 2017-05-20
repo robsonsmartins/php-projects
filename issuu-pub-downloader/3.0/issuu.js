@@ -3,11 +3,11 @@
  * @fileOverview Issuu Publication Downloader
  * 
  * @author Robson Martins (robson@robsonmartins.com)
- * @version 3.1.0
+ * @version 3.1.1
  */
 /*----------------------------------------------------------------------------*/
 /* 
- *  Copyright (C) 2016 Robson S. Martins
+ *  Copyright (C) 2017 Robson S. Martins
  *  Robson Martins <http://www.robsonmartins.com>
  * 
  *  This program is free software: you can redistribute it and/or modify
@@ -292,6 +292,10 @@ function IssuuDownloader() {
     var csrf = 
       document.cookie.replace(
         /(?:(?:^|.*;\s*)issuu\.model\.lcsrf\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+	if (csrf === undefined || csrf === null || csrf === '') {
+      csrf = "1";
+      document.cookie = "issuu.model.lcsrf=1";
+	}
     var login_url = 
       ISSUU_LOGIN_URL.format({username:username,password:pwd,csrf:csrf});
     getJsonByPost(login_url, null, null,
