@@ -3,7 +3,7 @@
  * @fileOverview Issuu Publication Downloader
  * 
  * @author Robson Martins (robson@robsonmartins.com)
- * @version 3.1.1
+ * @version 3.2
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -87,7 +87,7 @@ function IssuuDownloader() {
   var ISSUU_LOGIN_BASE_URL    = 'https://api.issuu.com/query';
   var ISSUU_LOGIN_PARAMS      = 'permission=f&loginExpiration=standard&action=issuu.user.login&format=json&username={username}&password={password}&loginCsrf={csrf}';
   var ISSUU_LOGIN_URL         = ISSUU_LOGIN_BASE_URL+'?'+ISSUU_LOGIN_PARAMS;
-
+  
   var ISSUU_IMAGE_BASE_URL    = 'https://image.issuu.com';
   var ISSUU_IMAGE_PARAMS      = '{documentId}/jpg/page_{page}.{extension}';
   var ISSUU_IMAGE_URL         = ISSUU_IMAGE_BASE_URL+'/'+ISSUU_IMAGE_PARAMS;
@@ -216,13 +216,13 @@ function IssuuDownloader() {
   function eventToLogin(msg) {
     if (abort_process) { eventNOK("Cancelled."); return; }
     login(issuu_username, issuu_password, loginOK, eventNOK);
-  }
+  };
 
   /** @private */
   function eventToLoginAll(msg) {
     if (abort_process) { eventNOK("Cancelled."); return; }
     login(issuu_username, issuu_password, loginAllByAuthorOK, eventNOK);
-  }
+  };
   
   /** @private */
   function loginOK(username) {
@@ -237,9 +237,10 @@ function IssuuDownloader() {
   };
   
   /** @private */
-  function getPublicationIdOK(pubId) {
+  function getPublicationIdOK(pubUrl, pubId) {
     if (abort_process) { eventNOK("Cancelled."); return; }
-    getPublicationProperties(pubId, getPublicationPropertiesOK, eventNOK);
+    getPublicationProperties(pubUrl, pubId,
+                             getPublicationPropertiesOK, eventNOK);
   };
   
   /** @private */
@@ -292,10 +293,10 @@ function IssuuDownloader() {
     var csrf = 
       document.cookie.replace(
         /(?:(?:^|.*;\s*)issuu\.model\.lcsrf\s*\=\s*([^;]*).*$)|^.*$/, "$1");
-	if (csrf === undefined || csrf === null || csrf === '') {
+    if (csrf === undefined || csrf === null || csrf === '') {
       csrf = "1";
       document.cookie = "issuu.model.lcsrf=1";
-	}
+    }
     var login_url = 
       ISSUU_LOGIN_URL.format({username:username,password:pwd,csrf:csrf});
     getJsonByPost(login_url, null, null,
@@ -349,14 +350,15 @@ function IssuuDownloader() {
                 return; 
               }
               var doc_id = results[1];
-              callbackOk(doc_id);
+              callbackOk(pub_url, doc_id);
            }, 
            callbackNok
     );
   };
 
   /** @private */
-  function getPublicationProperties(publicationId, callbackOk, callbackNok) {
+  function getPublicationProperties(publicationUrl, publicationId, 
+                                    callbackOk, callbackNok) {
     if (publicationId == null || publicationId == '' || 
         publicationId == undefined) {
       callbackNok("Error: Empty Publication ID.");
@@ -366,25 +368,97 @@ function IssuuDownloader() {
     getJson(docProps_url, 
             function(resp){
               var pub_props = resp;
-              if (pub_props == null || pub_props == undefined) { 
-                callbackNok("Error getting properties for publication ID '" + 
-                            publicationId + "' at Issuu.");
-                return; 
-              }
-              if (pub_props.response             == null      || 
+              if (pub_props == null || pub_props == undefined ||
+                  pub_props.response             == null      || 
                   pub_props.response             == undefined ||
                   pub_props.response.numFound    == 0         ||
                   pub_props.response.docs        == null      || 
                   pub_props.response.docs        == undefined ||
                   pub_props.response.docs.length == 0) { 
-                callbackNok("Error: Publication with ID '" + publicationId + 
-                            "' not found at Issuu.");
+                getPublicationPropertiesBySource(
+                    publicationUrl, 
+                    function(resp){
+                        callbackOk(resp); 
+                        return; 
+                    },
+                    function(){
+                        callbackNok("Error: Publication with ID '" + 
+                            publicationId + "' not found at Issuu.");
+                        return; 
+                    }
+                );
                 return; 
               }
               pub_props = pub_props.response.docs[0];
               callbackOk(pub_props); 
             }, 
             callbackNok
+    );
+  };
+  
+  /** @private */
+  function getPublicationPropertiesBySource(publicationUrl,
+                                            callbackOk, callbackNok) {
+    if (publicationUrl == null || publicationUrl == '' || 
+        publicationUrl == undefined) { 
+      callbackNok("Error getting properties: Empty Publication URL.");
+      return;
+    }
+    getXml(publicationUrl,
+           function(resp){
+              var docProps;
+              var dom = resp;
+              if (dom == null || dom == undefined) { 
+                callbackNok("Error getting publication homepage from '" + 
+                            publicationUrl + "'.");
+                return; 
+              }
+              var node = getElementByDomByContent(dom,"script",
+                "type","application/javascript",/pageCount/i);
+              var docProps =
+                (node != null) ? node.innerHTML : null;
+              if (docProps == null || docProps == '' || 
+                  docProps == undefined) { 
+                callbackNok("Error getting publication properties from '" + 
+                            publicationUrl + "'.");
+                return; 
+              }
+              // "{<data>};"
+              var regex = new RegExp(/({[^;]*);/);
+              var results = regex.exec(docProps);
+              if (results == null || results.length <= 1) {
+                callbackNok("Error getting publication properties from '" + 
+                            publicationUrl + "'.");
+                return; 
+              }
+              docProps = JSON.parse(results[1]);
+              if (docProps == null || docProps == undefined) { 
+                callbackNok("Error getting publication properties from '" + 
+                            publicationUrl + "'.");
+                return; 
+              }
+              docProps = docProps.document;
+              if (docProps == null || docProps == undefined) { 
+                callbackNok("Error getting publication properties from '" + 
+                            publicationUrl + "'.");
+                return; 
+              }
+              var tags = docProps.tag;
+              if (tags == null || tags == undefined) {
+                  tags = [];
+              }
+              var pub_props = {
+                pagecount:docProps.pageCount,
+                documentId:docProps.documentId,
+                tag:tags,
+                title:docProps.title,
+                description:docProps.description,
+                username:docProps.userName,
+                docname:docProps.documentName
+              };
+              callbackOk(pub_props);
+           }, 
+           callbackNok
     );
   };
 
@@ -636,15 +710,44 @@ function IssuuDownloader() {
     }
     return node_found;
   };
+  
+  /** @private */
+  function getElementByDomByContent(node, tag, attr, attr_val, contentRegex) {
+    var tagList = node.getElementsByTagName(tag);
+    var idx;
+    var node_found = null;
+    for (idx = 0; idx < tagList.length; idx++) {
+      var element = tagList.item(idx);
+      node_found = null;
+      if (attr_val != null && attr_val != undefined) {
+        if (element.getAttribute(attr) == attr_val) {
+          node_found = element;
+        }
+      } else {
+        if (element.hasAttribute(attr)) {
+          node_found = element;
+        }
+      }
+      if (node_found != null) {
+          if (contentRegex == null || contentRegex == undefined) { break; }
+          var content = node_found.innerHTML;
+          var patt = new RegExp(contentRegex);
+          if (patt.test(content)) {
+            break;
+          }
+      }
+    }
+    return node_found;
+  };
 
   /** @private */
   function getXml(uri, callbackOk, callbackNok) {
     try {
       getFile(uri, 
-              function(resp){
+              function(resp,xhr){
                 try {  
                   var response = textToXML(resp);
-                  callbackOk(response);
+                  callbackOk(response,xhr);
                 } catch(e) {
                   callbackNok("Error getting file '" + uri + "': " + e.message);
                 }
@@ -659,10 +762,10 @@ function IssuuDownloader() {
   function getJsonByPost(uri, data, headers, callbackOk, callbackNok) {
     try {
       getFileByMethod('POST', uri, data, headers,
-              function(resp){
+              function(resp,xhr){
                 try {  
                   var response = JSON.parse(resp);
-                  callbackOk(response);
+                  callbackOk(response,xhr);
                 } catch(e) {
                   callbackNok("Error getting file '" + uri + "': " + e.message);
                 }
@@ -677,10 +780,10 @@ function IssuuDownloader() {
   function getJson(uri, callbackOk, callbackNok) {
     try {
       getFile(uri, 
-              function(resp){
+              function(resp,xhr){
                 try {  
                   var response = JSON.parse(resp);
-                  callbackOk(response);
+                  callbackOk(response,xhr);
                 } catch(e) {
                   callbackNok("Error getting file '" + uri + "': " + e.message);
                 }
@@ -702,7 +805,7 @@ function IssuuDownloader() {
           if (xhr.status == 200) {
             var response = xhr.responseText;
             if (response != null) {
-              callbackOk(response);
+              callbackOk(response,xhr);
             } else {
               callbackNok("Error getting file '" + uri + "': Null response.");          
             }
@@ -745,7 +848,7 @@ function IssuuDownloader() {
               if (typeof response === 'object') {
                  response = JSON.stringify(response);
               }
-              callbackOk(response);
+              callbackOk(response,xhr);
             } else {
               callbackNok("Error getting file '" + uri + "': Null response.");          
             }
