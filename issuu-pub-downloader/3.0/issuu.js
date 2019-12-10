@@ -3,7 +3,7 @@
  * @fileOverview Issuu Publication Downloader
  * 
  * @author Robson Martins (robson@robsonmartins.com)
- * @version 3.2
+ * @version 3.2.1
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -423,9 +423,10 @@ function IssuuDownloader() {
                             publicationUrl + "'.");
                 return; 
               }
-              // "{<data>};"
-              var regex = new RegExp(/({[^;]*);/);
-              var results = regex.exec(docProps);
+              // "xxx = {<data>};"
+			  docProps = docProps.substr(docProps.indexOf("{"));
+              docProps = docProps.substr(0,docProps.lastIndexOf("}")+1);
+			  docProps = JSON.parse(docProps);
               if (results == null || results.length <= 1) {
                 callbackNok("Error getting publication properties from '" + 
                             publicationUrl + "'.");
