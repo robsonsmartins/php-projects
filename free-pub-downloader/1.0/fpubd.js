@@ -3,7 +3,7 @@
  * @fileOverview Free Publication Downloader
  * 
  * @author Robson Martins (https://robsonmartins.com)
- * @version 1.0
+ * @version 1.1
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -267,11 +267,10 @@ function FreePubDownloader() {
 		if (filename == null || filename == '' || filename == undefined) {
 			filename = createFilenameToPDF(publicationProps.title.toString());
 		}
-		var doc = new jsPDF('p','pt');
-		doc = setDocumentProperties(doc, publicationProps);
+		var doc = null;
 		var pageNo = 1;
 		addPage(publicationProps, doc, pageNo, 
-			function(param){
+			function(doc){
 				doc.setPage(1);
 				doc.deletePage(1);
 				var isSafari = false;
@@ -353,13 +352,17 @@ function FreePubDownloader() {
 					 callbackOk, callbackNok, callbackProgress) {
 		getImgForPage(publicationProps, pageNo,
 						function(page_content, w, h){
-							var imgData = page_content;
-							doc.addPage([w, h]);
-							doc.addImage(imgData, 'JPEG', 0, 0, w, h);
+							var o = (w <= h) ? 'p' : 'l';
+							if (doc == null){
+								doc = new jsPDF({unit:'px',format:[w, h],orientation:o});
+								doc = setDocumentProperties(doc, publicationProps);
+							}
+							doc.addPage({format:[w, h],orientation:o});
+							doc.addImage(page_content, 'JPEG', 0, 0, w, h);
 							if (callbackProgress) { callbackProgress(pageNo); }
 							pageNo++;
 							if (pageNo > publicationProps.pages.count) {
-								callbackOk(true);
+								callbackOk(doc);
 								return;
 							}
 							if (abort_process) { callbackNok("Cancelled."); return; }
