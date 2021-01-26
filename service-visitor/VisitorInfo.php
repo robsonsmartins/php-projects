@@ -1,9 +1,9 @@
 <?php
 /* ---------------------------------------------------------------------------- 
- *  Visitor Info Service (v.1.3)
+ *  Visitor Info Service (v.1.5.1)
  * ---------------------------------------------------------------------------- 
- *  Copyright (C) 2015 Robson S. Martins
- *  Robson Martins <http://www.robsonmartins.com>
+ *  Copyright (C) 2021 Robson S. Martins
+ *  Robson Martins <https://www.robsonmartins.com>
  * 
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,8 +42,10 @@ use UAParser\UAParser;
  */
 class VisitorInfo {
   
+  /* URL for search details into IP-API free service */
+  const IP_API_QUERY_URL   = 'http://ip-api.com/json/%s';
   /* URL for search city details into GeoBytes free service */
-  const GD_QUERY_URL       = 'http://devgd.geobytes.com/GetCityDetails?fqcn=%s';
+  const GD_QUERY_URL       = 'http://getcitydetails.geobytes.com/GetCityDetails?callback=?&fqcn=%s';
   /* Path of GeoIp2 Lite city database */
   const GEO_LITE_DB_PATH   = 'GeoLite2-City.mmdb';
 
@@ -54,10 +56,15 @@ class VisitorInfo {
     $ip_server = $_SERVER['SERVER_ADDR'];
     $ip = $_SERVER['REMOTE_ADDR'];
     if (!$ip || !strcmp($ip, $ip_server)) 
-      $ip = $_SERVER["HTTP_X_FORWARDED_FOR"];
+      $ip = @$_SERVER["HTTP_X_FORWARDED_FOR"];
     if (strpos($ip,",") !== false) {
       $ips = explode(",",$ip);
       $ip = trim($ips[count($ips) - 1]);
+    }
+    if (!$ip && $ip_server){
+      $ip = $ip_server;
+    } else if (!$ip){
+      $ip = '127.0.0.1';
     }
     return ($ip);
   }
@@ -80,23 +87,13 @@ class VisitorInfo {
    *         long    ==> Longitude
    */
   public function getGeoInfo($ip) {
-    $geoInfo = $this->getGeoInfoByGeoIP2($ip);
+	$geoInfo = $this->getGeoInfoByIpApi($ip);
     if ($geoInfo == null) {
       $geoInfo = $this->getGeoInfoByGeoBytes($ip);
-    } else if ($geoInfo['country'] == '') { 
-      $new = $this->getGeoInfoByGeoBytes($ip);
-      $geoInfo['country'] = $new['country'];
-    } else if ($geoInfo['ccode'] == '') { 
-      $new = $this->getGeoInfoByGeoBytes($ip);
-      $geoInfo['ccode'] = $new['ccode'];
-    } else if ($geoInfo['city'] == '') { 
-      $new = $this->getGeoInfoByGeoBytes($ip);
-      $geoInfo['city'] = $new['city'];
-    } else if ($geoInfo['lat'] == '' || $geoInfo['long'] == '') { 
-      $new = $this->getGeoInfoByGeoBytes($ip);
-      $geoInfo['lat'] = $new['lat'];
-      $geoInfo['long'] = $new['long'];
-    }
+	}		
+    if ($geoInfo == null) {
+	  $geoInfo = $this->getGeoInfoByGeoIP2($ip);
+	}
     return ($geoInfo);
   }
 
@@ -119,43 +116,43 @@ class VisitorInfo {
     
     if ($uaInfo == null) { $uaInfo = $uaInfo2; }
 
-    if (!strcmp($uaInfo ['os_code'],""))
+    if (!strcmp(@$uaInfo ['os_code'],""))
       { $uaInfo ['os_code'] = "unknown"; }
-    if (!strcmp($uaInfo2['os_code'],""))
+    if (!strcmp(@$uaInfo2['os_code'],""))
       { $uaInfo2['os_code'] = "unknown"; }
     
-    if (!strcmp($uaInfo ['browser_code'],""))
+    if (!strcmp(@$uaInfo ['browser_code'],""))
       { $uaInfo ['browser_code'] = "unknown"; }
-    if (!strcmp($uaInfo2['browser_code'],""))
+    if (!strcmp(@$uaInfo2['browser_code'],""))
       { $uaInfo2['browser_code'] = "unknown"; }
 
-    if (!strcmp($uaInfo['os_code'],'unknown')) {
-      $uaInfo['os_code'] = $uaInfo2['os_code'];
-      $uaInfo['os'     ] = $uaInfo2['os'     ];
+    if (!strcmp(@$uaInfo['os_code'],'unknown')) {
+      $uaInfo['os_code'] = @$uaInfo2['os_code'];
+      $uaInfo['os'     ] = @$uaInfo2['os'     ];
     }
-    if (!strcmp($uaInfo['browser_code'],'unknown')) {
-      $uaInfo['browser_code'] = $uaInfo2['browser_code'];
-      $uaInfo['browser'     ] = $uaInfo2['browser'     ];
+    if (!strcmp(@$uaInfo['browser_code'],'unknown')) {
+      $uaInfo['browser_code'] = @$uaInfo2['browser_code'];
+      $uaInfo['browser'     ] = @$uaInfo2['browser'     ];
     }
-    if (!strcmp($uaInfo ['os_version'],"") && 
-         strcmp($uaInfo2['os_version'],"")) {
-        $uaInfo['os_version'] = $uaInfo2['os_version'];
-        $uaInfo['os'        ] = $uaInfo2['os'        ];
-        $uaInfo['os_code'   ] = $uaInfo2['os_code'   ];
+    if (!strcmp(@$uaInfo ['os_version'],"") && 
+         strcmp(@$uaInfo2['os_version'],"")) {
+        $uaInfo['os_version'] = @$uaInfo2['os_version'];
+        $uaInfo['os'        ] = @$uaInfo2['os'        ];
+        $uaInfo['os_code'   ] = @$uaInfo2['os_code'   ];
     }
-    if (!strcmp($uaInfo ['browser_version'],"") && 
-         strcmp($uaInfo2['browser_version'],"")) {
-       $uaInfo['browser_version'] = $uaInfo2['browser_version']; 
-       $uaInfo['browser'        ] = $uaInfo2['browser'        ]; 
-       $uaInfo['browser_code'   ] = $uaInfo2['browser_code'   ]; 
+    if (!strcmp(@$uaInfo ['browser_version'],"") && 
+         strcmp(@$uaInfo2['browser_version'],"")) {
+       $uaInfo['browser_version'] = @$uaInfo2['browser_version']; 
+       $uaInfo['browser'        ] = @$uaInfo2['browser'        ]; 
+       $uaInfo['browser_code'   ] = @$uaInfo2['browser_code'   ]; 
     }
-    if ($uaInfo['is_mobile'] != $uaInfo2['is_mobile'])
-      { $uaInfo['is_mobile']  = $uaInfo2['is_mobile']; }
+    if (@$uaInfo['is_mobile'] != @$uaInfo2['is_mobile'])
+      { $uaInfo['is_mobile']  = @$uaInfo2['is_mobile']; }
       
-    if ($uaInfo['os_version'] == 'XP' || 
-        $uaInfo['os_code'   ] == 'linux') { $uaInfo = $uaInfo2; }
+    if (@$uaInfo['os_version'] == 'XP' || 
+        @$uaInfo['os_code'   ] == 'linux') { $uaInfo = $uaInfo2; }
 
-    switch ($uaInfo['os_code']){
+    switch (@$uaInfo['os_code']){
       case "unknown"      : $uaInfo['os'     ] = "Unknown"     ; break;
       case "os/2"         : $uaInfo['os_code'] = "os2"         ; break;
       case "risc os"      : $uaInfo['os_code'] = "risc"        ; break;
@@ -213,34 +210,34 @@ class VisitorInfo {
       case "winnt"        : $uaInfo['os'     ] = "Windows"     ; break;
                             $uaInfo['os_version'] = "NT"       ; break;
       case "windows"      : 
-        $ver = floatval($uaInfo['os_version']);
+        $ver = floatval(@$uaInfo['os_version']);
         if ($ver > 0) { $uaInfo['os_version'] = $ver; }
         $uaInfo['os_code'   ] = 
-          strtolower(str_replace(".","","win".$uaInfo['os_version']));
+          strtolower(str_replace(".","","win".@$uaInfo['os_version']));
         break;
       default:
-        if (substr($uaInfo['os_code'],0,3) === "win") {
+        if (substr(@$uaInfo['os_code'],0,3) === "win") {
           $uaInfo['os'        ] = "Windows"; 
-          $ver = floatval(substr($uaInfo['os_code'],3));
+          $ver = floatval(substr(@$uaInfo['os_code'],3));
           if ($ver > 0) { 
             $uaInfo['os_version'] = $ver;
           } else {
-            $uaInfo['os_version'] = substr($uaInfo['os_code'],3); 
+            $uaInfo['os_version'] = substr(@$uaInfo['os_code'],3); 
           }
           $uaInfo['os_code'   ] = 
-            str_replace(".","",'win'.$uaInfo['os_version']); 
+            str_replace(".","",'win'.@$uaInfo['os_version']); 
         }
     }
     /* Win10 Edge Browser */
-    if ($uaInfo['os_code'] === 'win10' &&
-        $uaInfo2['browser_code'] === 'edge' && $uaInfo['browser_version'] > 11){
+    if (@$uaInfo['os_code'] === 'win10' &&
+        @$uaInfo2['browser_code'] === 'edge' && @$uaInfo['browser_version'] > 11){
 
-        $uaInfo['browser_code'   ] = $uaInfo2['browser_code'   ];
-        $uaInfo['browser'        ] = $uaInfo2['browser'        ];
-        $uaInfo['browser_version'] = $uaInfo2['browser_version'];
+        $uaInfo['browser_code'   ] = @$uaInfo2['browser_code'   ];
+        $uaInfo['browser'        ] = @$uaInfo2['browser'        ];
+        $uaInfo['browser_version'] = @$uaInfo2['browser_version'];
     }
     
-    switch ($uaInfo['browser_code']){
+    switch (@$uaInfo['browser_code']){
       case "unknown"          : $uaInfo['browser'     ] = "Unknown"          ; break;
       case "edge"             : $uaInfo['browser'     ] = "Edge"             ; break;
       case "internet explorer": $uaInfo['browser_code'] = "ie"; 
@@ -251,24 +248,43 @@ class VisitorInfo {
       case "webtv/msntv"      : $uaInfo['browser_code'] = "webtv"            ; break;
       case "avant browser"    : $uaInfo['browser_code'] = "avant"            ; break;
       default:
-        if (strpos($uaInfo['browser_code'],"google") !== false) { 
+        if (strpos(@$uaInfo['browser_code'],"google") !== false) { 
           $uaInfo['browser_code'] = "google"; 
           $uaInfo['os_code'     ] = "google"; 
-          $uaInfo['os'          ] = $uaInfo['browser']; 
-        } else if (strpos($uaInfo['browser_code'],"inktomi") !== false) { 
+          $uaInfo['os'          ] = @$uaInfo['browser']; 
+        } else if (strpos(@$uaInfo['browser_code'],"inktomi") !== false) { 
           $uaInfo['browser_code'] = "yahoo"; 
           $uaInfo['os_code'     ] = "yahoo";
-          $uaInfo['os'          ] = $uaInfo['browser']; 
-        } else if (strpos($uaInfo['browser_code'],"yahoo") !== false) { 
+          $uaInfo['os'          ] = @$uaInfo['browser']; 
+        } else if (strpos(@$uaInfo['browser_code'],"yahoo") !== false) { 
           $uaInfo['browser_code'] = "yahoo"; 
           $uaInfo['os_code'     ] = "yahoo"; 
-          $uaInfo['os'          ] = $uaInfo['browser']; 
+          $uaInfo['os'          ] = @$uaInfo['browser']; 
         }
     }
-    if (!strcmp($uaInfo['browser_version'],"0")){ 
+    if (!strcmp(@$uaInfo['browser_version'],"0")){ 
       $uaInfo['browser_version'] = ""; 
     }
+    $uaInfo['os_is64bit'] = $this->is64bit($uaString);
     return ($uaInfo);
+  }
+
+  private function getGeoInfoByIpApi($ip) {
+    $geoInfo = null; $record = null;
+    try {
+      $query_url = sprintf(self::IP_API_QUERY_URL, $ip);
+      $record = @json_decode(
+                    @file_get_contents($query_url), true);
+    } catch (Exception $e) { $record = null; }
+    if ($record != null) {
+      $geoInfo = array();
+      $geoInfo['country'] = trim(@$record['country'    ]);
+      $geoInfo['ccode'  ] = trim(@$record['countryCode']);
+      $geoInfo['city'   ] = trim(@$record['city'       ]);
+      $geoInfo['lat'    ] = trim(@$record['lat'        ]);
+      $geoInfo['long'   ] = trim(@$record['lon'        ]);
+    }
+    return ($geoInfo);
   }
 
   private function getGeoInfoByGeoBytes($ip) {
@@ -280,11 +296,11 @@ class VisitorInfo {
     } catch (Exception $e) { $record = null; }
     if ($record != null) {
       $geoInfo = array();
-      $geoInfo['country'] = trim($record['geobytescountry'  ]);
-      $geoInfo['ccode'  ] = trim($record['geobytesinternet' ]);
-      $geoInfo['city'   ] = trim($record['geobytescity'     ]);
-      $geoInfo['lat'    ] = trim($record['geobyteslatitude' ]);
-      $geoInfo['long'   ] = trim($record['geobyteslongitude']);
+      $geoInfo['country'] = trim(@$record['geobytescountry'  ]);
+      $geoInfo['ccode'  ] = trim(@$record['geobytesinternet' ]);
+      $geoInfo['city'   ] = trim(@$record['geobytescity'     ]);
+      $geoInfo['lat'    ] = trim(@$record['geobyteslatitude' ]);
+      $geoInfo['long'   ] = trim(@$record['geobyteslongitude']);
     }
     return ($geoInfo);
   }
@@ -363,13 +379,13 @@ class VisitorInfo {
     } catch (Exception $e) { $record = null; }
     if ($record != null) {
       $uaInfo = array();
-      $uaInfo['os'             ] = $record['platform'];
-      $uaInfo['os_code'        ] = strtolower($record['platform']);
+      $uaInfo['os'             ] = @$record['platform'];
+      $uaInfo['os_code'        ] = strtolower(@$record['platform']);
       $uaInfo['os_version'     ] = '';
-      $uaInfo['browser'        ] = $record['browser'];
-      $uaInfo['browser_version'] = $record['version'];
-      $uaInfo['browser_code'   ] = strtolower($record['browser']);
-      $uaInfo['is_mobile'      ] = $record['ismobiledevice'];
+      $uaInfo['browser'        ] = @$record['browser'];
+      $uaInfo['browser_version'] = @$record['version'];
+      $uaInfo['browser_code'   ] = strtolower(@$record['browser']);
+      $uaInfo['is_mobile'      ] = @$record['ismobiledevice'];
     }
     return ($uaInfo);
   }
@@ -633,6 +649,24 @@ class VisitorInfo {
     return $brws_info;
   }
   
+  private function is64bit($agent){
+    $is64bit = false;
+    if (stristr($agent,"x86_64" )) $is64bit = true;
+    if (stristr($agent,"x86-64" )) $is64bit = true;
+    if (stristr($agent,"win64"  )) $is64bit = true;
+    if (stristr($agent,"x64;"   )) $is64bit = true;
+    if (stristr($agent,"amd64"  )) $is64bit = true;
+    if (stristr($agent,"wow64"  )) $is64bit = true;
+    if (stristr($agent,"x64_64" )) $is64bit = true;
+    if (stristr($agent,"ia64"   )) $is64bit = true;
+    if (stristr($agent,"sparc64")) $is64bit = true;
+    if (stristr($agent,"ppc64"  )) $is64bit = true;
+    if (stristr($agent,"irix64" )) $is64bit = true;
+    if (stristr($agent,"aarch64")) $is64bit = true;
+    if (stristr($agent,"arm64"  )) $is64bit = true;
+    return $is64bit;
+  }
+
 }
 
 ?>
