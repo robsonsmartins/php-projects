@@ -3,11 +3,11 @@
  * @fileOverview Free Publication Downloader
  * 
  * @author Robson Martins (https://robsonmartins.com)
- * @version 1.1
+ * @version 1.3
  */
 /*----------------------------------------------------------------------------*/
 /* 
- *  Copyright (C) 2020 Robson S. Martins
+ *  Copyright (C) 2021 Robson S. Martins
  *  Robson Martins <http://www.robsonmartins.com>
  * 
  *  This program is free software: you can redistribute it and/or modify
@@ -376,7 +376,7 @@ function FreePubDownloader() {
 	/** @private */
 	function getImgForPage(publicationProps, pageNo, callbackOk, callbackNok) {
 		var page_url = publicationProps.pages.url.replace("%d",pageNo.toString());
-		getImageFile(page_url, "image/jpeg", 
+		getImageFile(page_url, "image/jpeg", pageNo==1, 
 					 function(page_content, w, h){
 						 if (page_content == null || page_content == undefined) { 
 							 callbackNok("Error getting the page '" + pageNo + 
@@ -397,7 +397,7 @@ function FreePubDownloader() {
 			? publicationProps.tags.length : 0;
 		for (idx = 0; idx < len; idx++) {
 			if (idx != 0) tags += ' ';
-			tags += publicationProps.tags[idx].toString(); 
+			tags += publicationProps.tags[idx].toString().replace("\\","").replace("/",""); 
 		}
 		doc.setProperties(
 			{title   : (publicationProps.title != undefined) ? publicationProps.title.toString() : '',
@@ -413,9 +413,10 @@ function FreePubDownloader() {
 	/** @private */
 	function createFilenameToPDF(title) {
 		var filename = title;
-		filename = filename.substr(0,100);
-		filename = encodeURIComponent(filename).trim() + 
-							 "." + OUTPUT_DOCUMENT_TYPE;
+		filename = filename.substr(0,100)
+			.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+			.replace(/\u0142/g,"l").trim().replace(/[^a-zA-Z0-9]/g,"_")
+			.replace(/_+/g,"_") + "." + OUTPUT_DOCUMENT_TYPE;
 		return filename;
 	};
 
@@ -423,7 +424,22 @@ function FreePubDownloader() {
 	/* private auxiliary functions */
 
 	/** @private */
-	function getImageFile(uri, mimeType, callbackOk, callbackNok) {
+	function getImageFile(uri, mimeType, first, callbackOk, callbackNok) {
+		if (typeof getImageFile.canvasOK == 'undefined' || first){
+			getImageFile.canvasOK = true;
+		}
+		if (getImageFile.canvasOK){
+			getImageByCanvas(uri, mimeType, callbackOk, function(msg){
+				getImageFile.canvasOK = false;
+				getImageByPr(uri, mimeType, callbackOk, callbackNok);
+			});
+		} else {
+			getImageByPr(uri, mimeType, callbackOk, callbackNok);
+		}
+	};
+
+	/** @private */
+	function getImageByCanvas(uri, mimeType, callbackOk, callbackNok) {
 		var img = new Image();
 		img.onload = function() {
 			try {
@@ -447,6 +463,12 @@ function FreePubDownloader() {
 		} catch (e) { 
 			callbackNok("Error getting file '" + uri + "': " + e.message); 
 		}
+	};
+
+	/** @private */
+	function getImageByPr(uri, mimeType, callbackOk, callbackNok) {
+		var prUri = FREEPUBD_API_URL + 'imgdata.php?url=' + encodeURIComponent(uri) + '&type=' + mimeType;
+		getImageByCanvas(prUri, mimeType, callbackOk, callbackNok);
 	};
 	
 };
