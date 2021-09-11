@@ -3,7 +3,7 @@
  * @fileOverview Free Publication Downloader
  * 
  * @author Robson Martins (https://robsonmartins.com)
- * @version 2.0
+ * @version 2.0.1
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -36,8 +36,9 @@ var FreePubDownloader = function(endpoint){
 	PDF_CREATOR_URL      = 'https://robsonmartins.com/content/info/fpubd/';
 	OUTPUT_DOCUMENT_TYPE = 'pdf';
 	OUTPUT_ZIP_TYPE      = 'zip';
-	DEFAULT_INITIAL_PAGE = 0;
+	DEFAULT_INITIAL_PAGE =  0;
 	DEFAULT_PAGE_SIZE    = 10;
+	GET_IMG_MAX_RETRY    =  3;
 	_abort    = false;
 	_endpoint = endpoint;
 };
@@ -383,33 +384,44 @@ FreePubDownloader.prototype._addPage = function(publication,doc,page,
 												onSuccess,onError,onProgress){
 	var $this = this;
 	var url = publication.pages.url.replace("%d",page.toString());
-	$this._getImageFile(url, "image/jpeg", page==1, 
-		function(content, w, h){
-			if (content == null || content == undefined){ 
-				onError("Error getting the page '" + page + 
-						"' for publication ID '" + 
-						publication.id.toString() + "'.");
-				return; 
-			}
-			var o = (w <= h) ? 'p' : 'l';
-			if (doc == null){
-				doc = new jsPDF({unit:'px',format:[w, h],orientation:o});
-				doc = $this._setDocProps(doc, publication);
-			}
-			doc.addPage({format:[w, h],orientation:o});
-			doc.addImage(content, 'JPEG', 0, 0, w, h);
-			if (onProgress) { onProgress(page); }
-			page++;
-			if (page > publication.pages.count) {
-				onSuccess(doc);
-				return;
-			}
-			if (_abort) { onError("Cancelled."); return; }
-			$this._addPage(publication, doc, page,
-					onSuccess, onError, onProgress);				
-		}, 
-		onError
-	);		
+	var ntry = 0;
+	var funcGetImageFileOnSuccess = function(content, w, h){
+		if (content == null || content == undefined){ 
+			onError("Error getting the page '" + page + 
+					"' for publication ID '" + 
+					publication.id.toString() + "'.");
+			return; 
+		}
+		var o = (w <= h) ? 'p' : 'l';
+		if (doc == null){
+			doc = new jsPDF({unit:'px',format:[w, h],orientation:o});
+			doc = $this._setDocProps(doc, publication);
+		}
+		doc.addPage({format:[w, h],orientation:o});
+		doc.addImage(content, 'JPEG', 0, 0, w, h);
+		if (onProgress) { onProgress(page); }
+		page++;
+		if (page > publication.pages.count) {
+			onSuccess(doc);
+			return;
+		}
+		if (_abort) { onError("Cancelled."); return; }
+		$this._addPage(publication, doc, page,
+				onSuccess, onError, onProgress);				
+	}; 
+	var funcGetImageFileOnError = function(msg){
+		ntry++;
+		if (_abort) { onError("Cancelled."); return; }
+		if (ntry >= GET_IMG_MAX_RETRY){
+			onError(msg);
+			return;
+		} else {
+			$this._getImageFile(url, "image/jpeg", true,
+				funcGetImageFileOnSuccess, funcGetImageFileOnError);
+		}
+	};
+	$this._getImageFile(url, "image/jpeg", page==1,
+		funcGetImageFileOnSuccess, funcGetImageFileOnError);		
 };
 
 FreePubDownloader.prototype._generatePdfFilename = function(title){
