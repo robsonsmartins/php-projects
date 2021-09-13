@@ -150,12 +150,14 @@ FreePubDownloader.prototype._download = function(url,term,isSearch,
 	var $this = this;
 	var zip = new JSZip();
 	_abort = false;
+	var completed = new Set();
 	$this._listAndDownload(zip,url,term,0,0,isSearch,whiteList,blackList,
-						   onSuccess,onError,onProgress);
+						   completed,onSuccess,onError,onProgress);
 };
 
 FreePubDownloader.prototype._listAndDownload = function(zip,url,term,page,pub,
-					isSearch,whiteList,blackList,onSuccess,onError,onProgress){
+					isSearch,whiteList,blackList,completed,
+					onSuccess,onError,onProgress){
 	var $this = this;
 	var data = isSearch 
 		? ({'search':term,'page':page}) : ({'url':term,'page':page});
@@ -181,16 +183,22 @@ FreePubDownloader.prototype._listAndDownload = function(zip,url,term,page,pub,
 			}
 			if (requested <= 0){ requested = 1; }
 			if (!data.publications.length && requested > 1){
-				$this._saveZip(zip,$this._generateZipFilename(),onSuccess);
+				$this._saveZip(zip,$this._generateZipFilename(),onSuccess,
+					function(filename,perc){
+						onProgress(Math.round(requested * perc / 100),
+								   requested,Math.round(perc),
+								   filename,1,1,100);
+					});
 				return;
 			}
-			$this._createDocuments(zip,url,data,whiteList,blackList,
+			$this._createDocuments(zip,url,data,whiteList,blackList,completed,
 				function(processed,zip,doc,filename){
 					total += processed;
 					if (total < requested){
 						page++;
 						$this._listAndDownload(zip,url,term,page,pub,isSearch,
-							whiteList,blackList,onSuccess,onError,onProgress);
+							whiteList,blackList,completed,
+							onSuccess,onError,onProgress);
 					} else {
 						if (requested == 1 && doc !== undefined
 								&& filename !== undefined){
@@ -198,7 +206,14 @@ FreePubDownloader.prototype._listAndDownload = function(zip,url,term,page,pub,
 							return;
 						} else {
 							$this._saveZip(zip,
-								$this._generateZipFilename(),onSuccess);
+								$this._generateZipFilename(),onSuccess,
+								function(filename,perc){
+									onProgress(
+										Math.round(requested * perc / 100),
+										requested,Math.round(perc),
+										filename,1,1,100
+									);
+								});
 							return;
 						}
 					}
@@ -213,6 +228,7 @@ FreePubDownloader.prototype._listAndDownload = function(zip,url,term,page,pub,
 					if (blackList != undefined && blackList.length){ 
 						pubs -= blackList.length; 
 					}
+					if (pub > pubs){pub = pubs;}
 					var percPub = pub * 100 / pubs;
 					if (page != pages){
 						percPub += ((1 / pubs) * (page / pages) * 100) / pubs;
@@ -238,32 +254,39 @@ FreePubDownloader.prototype._listAndDownload = function(zip,url,term,page,pub,
 };
 
 FreePubDownloader.prototype._createDocuments = function(zip,url,data,
-							whiteList,blackList,onSuccess,onError,onProgress){
+							whiteList,blackList,completed,
+							onSuccess,onError,onProgress){
 	var $this = this;
 	if (!data.publications.length){ onSuccess(0,zip); return;}
 	var idx = 0, total = 0;
-	$this._createAndAddDoc(zip,url,data,idx,total,whiteList,blackList,
+	$this._createAndAddDoc(zip,url,data,idx,total,whiteList,blackList,completed,
 						   onSuccess,onError,onProgress);
 };
 
 FreePubDownloader.prototype._createAndAddDoc = function(zip,url,data,idx,total,
-							whiteList,blackList,onSuccess,onError,onProgress){
+							whiteList,blackList,completed,
+							onSuccess,onError,onProgress){
 	if (_abort) { onError("Cancelled."); return; }
 	var $this = this;
 	var isToAdd = true;
-	var pub = data.publications[idx];
-	var requested = data.total ? data.total : data.publications.length;
-	if (whiteList !== undefined && whiteList.length){
-		if (whiteList.indexOf(pub.id.toString()) == -1){ isToAdd = false; }
-		requested = whiteList.length;
-	}
-	if (blackList !== undefined && blackList.length){
-		if (blackList.indexOf(pub.id.toString()) != -1){ isToAdd = false; }
-		requested -= blackList.length;
+	if (idx >= data.publications.length){ 
+		isToAdd = false; 
+	} else {
+		var pub = data.publications[idx];
+		var requested = data.total ? data.total : data.publications.length;
+		if (completed.has(pub.id.toString())){ isToAdd = false; }
+		if (whiteList !== undefined && whiteList.length){
+			if (whiteList.indexOf(pub.id.toString()) == -1){ isToAdd = false; }
+			requested = whiteList.length;
+		}
+		if (blackList !== undefined && blackList.length){
+			if (blackList.indexOf(pub.id.toString()) != -1){ isToAdd = false; }
+			requested -= blackList.length;
+		}
 	}
 	if (isToAdd){
 		total++;
-
+		completed.add(pub.id.toString());
 		var funcCreateDocument = function(pdata,pidx){
 			var ppub = pdata.publications[pidx];
 			if (ppub.username == undefined){ 
@@ -279,7 +302,7 @@ FreePubDownloader.prototype._createAndAddDoc = function(zip,url,data,idx,total,
 							total < requested){
 						idx++;
 						$this._createAndAddDoc(zip,url,data,idx,total,
-							whiteList,blackList,
+							whiteList,blackList,completed,
 							onSuccess,onError,onProgress);
 					} else {
 						onSuccess(total,zip,doc,filename);
@@ -320,7 +343,7 @@ FreePubDownloader.prototype._createAndAddDoc = function(zip,url,data,idx,total,
 		if (idx < data.publications.length && total < requested){
 			idx++;
 			$this._createAndAddDoc(zip,url,data,idx,total,whiteList,blackList,
-								   onSuccess,onError,onProgress);
+								   completed,onSuccess,onError,onProgress);
 		} else {
 			onSuccess(total,zip);
 		}
@@ -346,11 +369,11 @@ FreePubDownloader.prototype._createDocument = function(publication,
 		},
 		function(page){
 			if (_abort) { onError("Cancelled."); return; }
-			var percent = 
-				page * 100 / 
-				((publication.pages.count != 0) ? publication.pages.count : 1);
-			percent = Math.round(percent);
-			onProgress(publication.title,page,publication.pages.count,percent);
+			var pages = (publication.pages.count != 0) 
+				? publication.pages.count : 1;
+			if (page > pages){ page = pages; };
+			var percent = Math.round(page * 100 / pages);
+			onProgress(publication.title,page,pages,percent);
 		}
 	);
 };
@@ -369,11 +392,15 @@ FreePubDownloader.prototype._addToZip = function(zip,filename,doc){
 	zip.file(filename,doc.output('blob',filename));
 };
 
-FreePubDownloader.prototype._saveZip = function(zip,filename,onSuccess){
+FreePubDownloader.prototype._saveZip = function(zip,filename,
+												onSuccess,onProgress){
 	zip.generateAsync({
 			type:"blob",
 			compression:"STORE",
 			comment:"Created by "+PDF_CREATOR_APPNAME+"\n"+PDF_CREATOR_URL
+		},
+		function updateCallback(metadata){
+			onProgress(metadata.currentFile,metadata.percent);
 		}).then(function(content){
 		saveAs(content,filename);
 		onSuccess(filename);
@@ -384,44 +411,37 @@ FreePubDownloader.prototype._addPage = function(publication,doc,page,
 												onSuccess,onError,onProgress){
 	var $this = this;
 	var url = publication.pages.url.replace("%d",page.toString());
-	var ntry = 0;
-	var funcGetImageFileOnSuccess = function(content, w, h){
-		if (content == null || content == undefined){ 
-			onError("Error getting the page '" + page + 
-					"' for publication ID '" + 
-					publication.id.toString() + "'.");
-			return; 
-		}
-		var o = (w <= h) ? 'p' : 'l';
-		if (doc == null){
-			doc = new jsPDF({unit:'px',format:[w, h],orientation:o});
-			doc = $this._setDocProps(doc, publication);
-		}
-		doc.addPage({format:[w, h],orientation:o});
-		doc.addImage(content, 'JPEG', 0, 0, w, h);
-		if (onProgress) { onProgress(page); }
-		page++;
-		if (page > publication.pages.count) {
-			onSuccess(doc);
-			return;
-		}
-		if (_abort) { onError("Cancelled."); return; }
-		$this._addPage(publication, doc, page,
-				onSuccess, onError, onProgress);				
-	}; 
-	var funcGetImageFileOnError = function(msg){
-		ntry++;
-		if (_abort) { onError("Cancelled."); return; }
-		if (ntry >= GET_IMG_MAX_RETRY){
+	$this._getImageFile(url, "image/jpeg", page==1,
+		function(content, w, h){
+			if (content == null || content == undefined){ 
+				onError("Error getting the page '" + page + 
+						"' for publication ID '" + 
+						publication.id.toString() + "'.");
+				return; 
+			}
+			var o = (w <= h) ? 'p' : 'l';
+			if (doc == null){
+				doc = new jsPDF({unit:'px',format:[w, h],orientation:o});
+				doc = $this._setDocProps(doc, publication);
+			}
+			doc.addPage({format:[w, h],orientation:o});
+			doc.addImage(content, 'JPEG', 0, 0, w, h);
+			if (onProgress) { onProgress(page); }
+			page++;
+			if (page > publication.pages.count) {
+				onSuccess(doc);
+				return;
+			}
+			if (_abort) { onError("Cancelled."); return; }
+			$this._addPage(publication, doc, page,
+					onSuccess, onError, onProgress);				
+		},
+		function(msg){
+			if (_abort) { onError("Cancelled."); return; }
 			onError(msg);
 			return;
-		} else {
-			$this._getImageFile(url, "image/jpeg", true,
-				funcGetImageFileOnSuccess, funcGetImageFileOnError);
 		}
-	};
-	$this._getImageFile(url, "image/jpeg", page==1,
-		funcGetImageFileOnSuccess, funcGetImageFileOnError);		
+	);
 };
 
 FreePubDownloader.prototype._generatePdfFilename = function(title){
@@ -464,16 +484,38 @@ FreePubDownloader.prototype._setDocProps = function(doc, publication){
 FreePubDownloader.prototype._getImageFile = function(uri,mimeType,first,
 													 onSuccess,onError) {
 	var $this = this;
+	var ntry = 0;
 	if (typeof $this._getImageFile.canvasOK == 'undefined' || first){
 		$this._getImageFile.canvasOK = true;
 	}
-	if ($this._getImageFile.canvasOK){
-		$this._getImageByCanvas(uri, mimeType, onSuccess, function(msg){
+	var funcGetImageByPrOnError = function(msg){
+		ntry++;
+		if (ntry >= GET_IMG_MAX_RETRY){
+			$this._getImageFile.canvasOK = true;
+			$this._getImageByCanvas(uri, mimeType, onSuccess, onError);
+		} else {
+			$this._getImageByPr(uri, mimeType, 
+								onSuccess, funcGetImageByPrOnError);
+		}
+	};
+	var funcGetImageByCanvasOnError = function(msg){
+		ntry++;
+		if (ntry >= GET_IMG_MAX_RETRY){
 			$this._getImageFile.canvasOK = false;
 			$this._getImageByPr(uri, mimeType, onSuccess, onError);
-		});
+		} else {
+			$this._getImageByCanvas(uri, mimeType, 
+									onSuccess, funcGetImageByCanvasOnError);
+		}
+	};
+	if ($this._getImageFile.canvasOK){
+		$this._getImageByCanvas(uri, mimeType, 
+								onSuccess, funcGetImageByCanvasOnError);
+		return;
 	} else {
-		$this._getImageByPr(uri, mimeType, onSuccess, onError);
+		$this._getImageByPr(uri, mimeType, 
+							onSuccess, funcGetImageByPrOnError);
+		return;
 	}
 };
 
