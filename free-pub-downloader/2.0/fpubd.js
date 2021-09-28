@@ -3,7 +3,7 @@
  * @fileOverview Free Publication Downloader
  * 
  * @author Robson Martins (https://robsonmartins.com)
- * @version 2.0.1
+ * @version 2.1
  */
 /*----------------------------------------------------------------------------*/
 /* 
@@ -27,6 +27,9 @@
  *
  *   jsPDF (https://github.com/MrRio/jsPDF)
  *   jsZip (https://github.com/Stuk/jszip)
+ *   StreamSaver (https://github.com/jimmywarting/StreamSaver.js/)
+ *	 web-streams-polyfill (https://github.com/MattiasBuelens/
+ *                         web-streams-polyfill)
  *   Backend (REST API)
  */
 /*----------------------------------------------------------------------------*/
@@ -36,9 +39,10 @@ var FreePubDownloader = function(endpoint){
 	PDF_CREATOR_URL      = 'https://robsonmartins.com/content/info/fpubd/';
 	OUTPUT_DOCUMENT_TYPE = 'pdf';
 	OUTPUT_ZIP_TYPE      = 'zip';
-	DEFAULT_INITIAL_PAGE =  0;
-	DEFAULT_PAGE_SIZE    = 10;
-	GET_IMG_MAX_RETRY    =  3;
+	DEFAULT_INITIAL_PAGE =     0;
+	DEFAULT_PAGE_SIZE    =    10;
+	GET_IMG_MAX_RETRY    =     3;
+	IMG_QUALITY          =  0.92;
 	_abort    = false;
 	_endpoint = endpoint;
 };
@@ -183,11 +187,12 @@ FreePubDownloader.prototype._listAndDownload = function(zip,url,term,page,pub,
 			}
 			if (requested <= 0){ requested = 1; }
 			if (!data.publications.length && requested > 1){
-				$this._saveZip(zip,$this._generateZipFilename(),onSuccess,
+				$this._saveZip(zip,$this._generateZipFilename(),
+					onSuccess,onError,
 					function(filename,perc){
 						onProgress(Math.round(requested * perc / 100),
 								   requested,Math.round(perc),
-								   filename,1,1,100);
+								   filename,1,1,100,2);
 					});
 				return;
 			}
@@ -206,12 +211,13 @@ FreePubDownloader.prototype._listAndDownload = function(zip,url,term,page,pub,
 							return;
 						} else {
 							$this._saveZip(zip,
-								$this._generateZipFilename(),onSuccess,
+								$this._generateZipFilename(),
+								onSuccess,onError,
 								function(filename,perc){
 									onProgress(
 										Math.round(requested * perc / 100),
 										requested,Math.round(perc),
-										filename,1,1,100
+										filename,1,1,100,2
 									);
 								});
 							return;
@@ -234,7 +240,7 @@ FreePubDownloader.prototype._listAndDownload = function(zip,url,term,page,pub,
 						percPub += ((1 / pubs) * (page / pages) * 100) / pubs;
 					}
 					percPub = Math.round(percPub);
-					onProgress(pub,pubs,percPub,title,page,pages,percPage);
+					onProgress(pub,pubs,percPub,title,page,pages,percPage,1);
 				}
 			);
 		},
@@ -393,18 +399,23 @@ FreePubDownloader.prototype._addToZip = function(zip,filename,doc){
 };
 
 FreePubDownloader.prototype._saveZip = function(zip,filename,
-												onSuccess,onProgress){
-	zip.generateAsync({
-			type:"blob",
-			compression:"STORE",
-			comment:"Created by "+PDF_CREATOR_APPNAME+"\n"+PDF_CREATOR_URL
-		},
-		function updateCallback(metadata){
-			onProgress(metadata.currentFile,metadata.percent);
-		}).then(function(content){
-		saveAs(content,filename);
+												onSuccess,onError,onProgress){
+	var writeStream = streamSaver.createWriteStream(filename).getWriter();
+	zip.generateInternalStream({
+		type:"uint8array",
+		compression:"STORE",
+		comment:"Created by "+PDF_CREATOR_APPNAME+"\n"+PDF_CREATOR_URL
+	})
+	.on('data', function(data,metadata){
+		writeStream.write(data);
+		onProgress(metadata.currentFile,metadata.percent);
+	})
+	.on('error', err => onError(err))
+	.on('end', function(){ 
+		writeStream.close(); 
 		onSuccess(filename);
-	});
+	})
+	.resume();
 };
 
 FreePubDownloader.prototype._addPage = function(publication,doc,page,
@@ -421,11 +432,13 @@ FreePubDownloader.prototype._addPage = function(publication,doc,page,
 			}
 			var o = (w <= h) ? 'p' : 'l';
 			if (doc == null){
-				doc = new jsPDF({unit:'px',format:[w, h],orientation:o});
+				doc = new jsPDF(
+					{unit:'px',format:[w, h],orientation:o,compress:true}
+				);
 				doc = $this._setDocProps(doc, publication);
 			}
 			doc.addPage({format:[w, h],orientation:o});
-			doc.addImage(content, 'JPEG', 0, 0, w, h);
+			doc.addImage(content, 'JPEG', 0, 0, w, h, '', 'FAST');
 			if (onProgress) { onProgress(page); }
 			page++;
 			if (page > publication.pages.count) {
@@ -529,7 +542,7 @@ FreePubDownloader.prototype._getImageByCanvas = function(uri,mimeType,
 			canvas.height = this.height;
 			var ctx = canvas.getContext("2d");
 			ctx.drawImage(this, 0, 0);
-			var dataURL = canvas.toDataURL(mimeType);
+			var dataURL = canvas.toDataURL(mimeType,IMG_QUALITY);
 			onSuccess(dataURL, img.width, img.height);
 		} catch (e) { 
 			onError("Error getting file '" + uri + "': " + e.message); 
