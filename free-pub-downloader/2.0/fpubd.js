@@ -400,19 +400,27 @@ FreePubDownloader.prototype._addToZip = function(zip,filename,doc){
 
 FreePubDownloader.prototype._saveZip = function(zip,filename,
 												onSuccess,onError,onProgress){
-	var writeStream = streamSaver.createWriteStream(filename).getWriter();
+	var writer = null;
+	try {
+		writer = streamSaver.createWriteStream(filename).getWriter();
+	} catch (e) { 
+		onError("Error generating file '" + filename + "': " + e.message);
+		return;
+	}
+	onProgress(filename,0);
 	zip.generateInternalStream({
-		type:"uint8array",
-		compression:"STORE",
+		type:"blob",
+		compression:"DEFLATE",
+		streamFiles:true,
 		comment:"Created by "+PDF_CREATOR_APPNAME+"\n"+PDF_CREATOR_URL
 	})
 	.on('data', function(data,metadata){
-		writeStream.write(data);
 		onProgress(metadata.currentFile,metadata.percent);
+		writer.write(data);
 	})
 	.on('error', err => onError(err))
 	.on('end', function(){ 
-		writeStream.close(); 
+		writer.close(); 
 		onSuccess(filename);
 	})
 	.resume();
