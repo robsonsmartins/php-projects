@@ -3,11 +3,11 @@
  * @fileOverview Free Publication Downloader
  * 
  * @author Robson Martins (https://robsonmartins.com)
- * @version 2.1
+ * @version 2.2
  */
 /*----------------------------------------------------------------------------*/
 /* 
- *  Copyright (C) 2021 Robson S. Martins
+ *  Copyright (C) 2022 Robson S. Martins
  *  Robson Martins <http://www.robsonmartins.com>
  * 
  *  This program is free software: you can redistribute it and/or modify
@@ -440,12 +440,10 @@ FreePubDownloader.prototype._addPage = function(publication,doc,page,
 			}
 			var o = (w <= h) ? 'p' : 'l';
 			if (doc == null){
-				doc = new jsPDF(
-					{unit:'px',format:[w, h],orientation:o,compress:true}
-				);
+				doc = new jsPDF(o,'px',[w, h],false,true);
 				doc = $this._setDocProps(doc, publication);
 			}
-			doc.addPage({format:[w, h],orientation:o});
+			doc.addPage([w, h],o);
 			doc.addImage(content, 'JPEG', 0, 0, w, h, '', 'FAST');
 			if (onProgress) { onProgress(page); }
 			page++;
