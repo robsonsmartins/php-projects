@@ -3,11 +3,11 @@
  * @fileOverview Free Publication Downloader
  * 
  * @author Robson Martins (https://robsonmartins.com)
- * @version 2.2
+ * @version 2.3
  */
 /*----------------------------------------------------------------------------*/
 /* 
- *  Copyright (C) 2022 Robson S. Martins
+ *  Copyright (C) 2023 Robson S. Martins
  *  Robson Martins <http://www.robsonmartins.com>
  * 
  *  This program is free software: you can redistribute it and/or modify
@@ -429,7 +429,8 @@ FreePubDownloader.prototype._saveZip = function(zip,filename,
 FreePubDownloader.prototype._addPage = function(publication,doc,page,
 												onSuccess,onError,onProgress){
 	var $this = this;
-	var url = publication.pages.url.replace("%d",page.toString());
+	var url = publication.pages.url[page.toString()];
+
 	$this._getImageFile(url, "image/jpeg", page==1,
 		function(content, w, h){
 			if (content == null || content == undefined){ 
